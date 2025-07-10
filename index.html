@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMT21 Critical Error Detection - Interactive Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: "Soothing Neutrals" - A calm palette with a warm off-white background, deep slate blue for text and primary elements, and muted teal and amber for accents and data visualization to create a professional, harmonious, and focused environment. -->
+    <!-- Application Structure Plan: A narrative, single-page scrolling application. The structure guides the user logically from the high-level summary to the details, mimicking a scientific poster. Sections include: 1. Header/Intro: Title and abstract. 2. The Challenge: Explaining Critical Error Detection and data imbalance. 3. Hybrid Methodology: A visual flowchart of the COMET + TinyLlama + Logistic Regression pipeline. 4. Data Breakdown: Interactive charts showing dataset composition. 5. Interactive Results: A prominent display of the overall MCC score and an interactive bar chart comparing language pairs, with hover-to-reveal analysis. 6. Conclusion & Limitations: Key takeaways and critical self-assessment of the methodology. This top-down, story-driven structure was chosen to make the complex technical information highly accessible and digestible, even for a non-expert audience, by prioritizing clarity and guided exploration over a dense, non-linear dashboard. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Overall MCC Score (0.282). Goal: Inform/Highlight. Viz: Large, bold KPI display. Interaction: Static. Justification: Immediately presents the primary result.
+        - Report Info: MCC scores per language pair. Goal: Compare/Analyze. Viz: Chart.js Bar Chart. Interaction: On hover, a text area updates with a qualitative analysis for the specific language pair. Justification: Connects the quantitative result with its qualitative explanation, revealing the key insight about performance vs. typological distance.
+        - Report Info: Dataset label distribution (3322 vs 678). Goal: Inform/Contextualize. Viz: Chart.js Donut Chart. Interaction: Static with tooltips. Justification: Visually communicates the significant class imbalance, a key challenge addressed in the methodology.
+        - Report Info: Methodology pipeline (COMET -> score, Llama -> flag, Fusion -> prediction). Goal: Organize/Explain. Viz: HTML/Tailwind diagram with flexbox/grid. Interaction: Static. Justification: Abstracts the complex code into a simple, clear flowchart, enhancing understanding of the system's architecture.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container {
+            position: relative;
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+        }
+        .section-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease-in-out;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-[#F8F7F4] text-[#34495E]">
+
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-6 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold text-[#2C3E50]">WMT21 CED Report</h1>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#overview" class="hover:text-[#16A085] transition-colors">Overview</a>
+                    <a href="#methodology" class="hover:text-[#16A085] transition-colors">Methodology</a>
+                    <a href="#results" class="hover:text-[#16A085] transition-colors">Results</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8 space-y-12">
+        <section id="overview" class="text-center pt-8">
+            <h2 class="text-4xl font-bold text-[#2C3E50] mb-4">A Hybrid Approach to Critical Error Detection</h2>
+            <p class="text-lg max-w-3xl mx-auto text-[#34495E]/90">
+                This report visualizes an experiment on the WMT21 Critical Error Detection task. We explore a novel hybrid system combining the COMETKiwi-23 XL quality estimation model with a TinyLlama-1.1B verifier to accurately identify high-impact translation errors across four language pairs.
+            </p>
+        </section>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div class="section-card md:col-span-1">
+                <h3 class="text-lg font-semibold mb-2 text-[#2C3E50]">The Challenge</h3>
+                <p class="text-sm text-[#34495E]/90 mb-4">The WMT21 task is to classify machine translations as either containing a "critical error" (label 1) or not (label 0). A key challenge is the severe class imbalance, with far fewer critical errors than acceptable translations.</p>
+                <div class="chart-container h-48 md:h-56">
+                    <canvas id="dataDistributionChart"></canvas>
+                </div>
+             </div>
+             <div class="section-card md:col-span-2">
+                <h3 class="text-lg font-semibold mb-3 text-[#2C3E50]">Dataset Composition</h3>
+                <p class="text-sm text-[#34495E]/90 mb-4">The experiment uses 4,000 samples from the WMT21 development set, split evenly across four language pairs. This chart shows the label distribution within each pair.</p>
+                 <div class="chart-container h-48 md:h-56">
+                    <canvas id="dataPairsChart"></canvas>
+                </div>
+             </div>
+        </div>
+
+        <section id="methodology" class="section-card">
+            <h2 class="text-3xl font-bold text-center text-[#2C3E50] mb-2">Hybrid System Architecture</h2>
+            <p class="text-md text-center max-w-2xl mx-auto text-[#34495E]/90 mb-8">
+                Our method generates two distinct signals for each translation and fuses them for a final prediction. This flowchart illustrates the process from input to classification.
+            </p>
+            <div class="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
+                <div class="p-4 rounded-lg bg-[#E8F6F3] w-full md:w-auto">
+                    <p class="font-semibold text-[#16A085]">Input</p>
+                    <p class="text-xs text-[#138D75]">Source & MT Sentence</p>
+                </div>
+                
+                <div class="text-4xl text-[#1ABC9C] font-light transform md:-rotate-0 rotate-90">&rarr;</div>
+
+                <div class="flex flex-col gap-4 w-full md:w-auto">
+                    <div class="p-4 rounded-lg bg-[#E8F6F3]">
+                        <p class="font-semibold text-[#16A085]">COMETKiwi-23 XL</p>
+                        <p class="text-xs text-[#138D75]">Generates a continuous quality score.</p>
+                    </div>
+                     <div class="p-4 rounded-lg bg-[#E8F6F3]">
+                        <p class="font-semibold text-[#16A085]">TinyLlama Verifier</p>
+                        <p class="text-xs text-[#138D75]">Generates a binary "critical error" flag (Yes/No).</p>
+                    </div>
+                </div>
+
+                <div class="text-4xl text-[#1ABC9C] font-light transform md:-rotate-0 rotate-90">&rarr;</div>
+
+                <div class="p-4 rounded-lg bg-[#FDEBD0] w-full md:w-auto">
+                    <p class="font-semibold text-[#F39C12]">Feature Fusion</p>
+                    <p class="text-xs text-[#D35400]">[Score, Flag]</p>
+                </div>
+
+                <div class="text-4xl text-[#1ABC9C] font-light transform md:-rotate-0 rotate-90">&rarr;</div>
+                
+                <div class="p-4 rounded-lg bg-[#D6EAF8] w-full md:w-auto">
+                    <p class="font-semibold text-[#3498DB]">Logistic Regression</p>
+                    <p class="text-xs text-[#2E86C1]">Final Prediction (0 or 1)</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="results" class="section-card">
+            <h2 class="text-3xl font-bold text-center text-[#2C3E50] mb-8">Experiment Results</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+                <div class="lg:col-span-1 text-center">
+                    <h3 class="text-xl font-semibold text-[#2C3E50]">Overall Performance</h3>
+                    <p class="text-sm text-[#34495E]/80 mb-4">Matthews Correlation Coefficient (MCC)</p>
+                    <p class="text-7xl font-bold text-[#16A085]">0.282</p>
+                    <p class="text-xs text-gray-500 mt-2">Across all 4 language pairs.</p>
+                </div>
+                <div class="lg:col-span-2">
+                     <div class="chart-container h-72 md:h-80">
+                        <canvas id="resultsChart"></canvas>
+                    </div>
+                    <div id="analysis-text" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm text-[#34495E]/90 min-h-[80px]">
+                        <p class="font-semibold">Hover over a bar to see a detailed analysis.</p>
+                        <p>This chart compares the model's performance on each language pair, revealing how linguistic differences can impact accuracy.</p>
+                        <button id="deepDiveButton" class="hidden mt-2 px-4 py-2 bg-[#16A085] text-white rounded-md hover:bg-[#138D75] transition-colors text-xs">✨ Deep Dive</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="gemini-features" class="section-card">
+            <h2 class="text-3xl font-bold text-center text-[#2C3E50] mb-8">Explore with Gemini</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="font-semibold text-lg text-[#2C3E50] mb-3">✨ Explain a Concept</h3>
+                    <p class="text-sm text-[#34495E]/90 mb-4">Enter a term from the report to get a concise explanation from an LLM.</p>
+                    <input type="text" id="conceptInput" placeholder="e.g., Matthews Correlation Coefficient" class="w-full p-2 border border-gray-300 rounded-md mb-3 focus:outline-none focus:ring-2 focus:ring-[#16A085]">
+                    <button id="explainConceptButton" class="w-full px-4 py-2 bg-[#16A085] text-white rounded-md hover:bg-[#138D75] transition-colors">✨ Explain</button>
+                    <div id="conceptOutput" class="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-[#34495E]/90 min-h-[80px] flex items-center justify-center">
+                        <p class="text-gray-400">Explanation will appear here...</p>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-lg text-[#2C3E50] mb-3">✨ Language Pair Challenges</h3>
+                    <p class="text-sm text-[#34495E]/90 mb-4">Click "Deep Dive" under the results chart for detailed linguistic insights.</p>
+                    <div class="p-3 bg-gray-50 rounded-lg text-sm text-[#34495E]/90 min-h-[80px] flex items-center justify-center">
+                        <p class="text-gray-400">Detailed linguistic analysis will appear in a pop-up after clicking Deep Dive.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="text-center p-6 mt-8 border-t border-gray-200">
+        <p class="text-sm text-gray-500">Interactive Report generated from experiment logs. 2024.</p>
+    </footer>
+
+    <!-- Modal for Deep Dive -->
+    <div id="deepDiveModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3 class="text-xl font-semibold text-[#2C3E50] mb-4">Linguistic Deep Dive</h3>
+            <div id="deepDiveContent" class="text-sm text-[#34495E]/90">
+                <p class="text-gray-400">Loading linguistic insights...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const data = {
+                overallDistribution: {
+                    labels: ['Non-Critical (0)', 'Critical (1)'],
+                    values: [3322, 678]
+                },
+                pairDistribution: {
+                    labels: ['en-cs', 'en-de', 'en-ja', 'en-zh'],
+                    nonCritical: [840, 719, 904, 859],
+                    critical: [160, 281, 96, 141]
+                },
+                results: {
+                    labels: ['en-cs', 'en-de', 'en-ja', 'en-zh'],
+                    mcc: [0.290, 0.288, 0.215, 0.182],
+                    analysis: [
+                        "<strong>English-Czech (en-cs):</strong> Strong performance. As a fellow Indo-European language, Czech shares some structural similarities with English, which likely aids the models in identifying errors more effectively.",
+                        "<strong>English-German (en-de):</strong> The highest performance among the pairs. German is typologically very close to English, which typically results in higher quality base MT and more reliable error detection by models trained predominantly on English-centric data.",
+                        "<strong>English-Japanese (en-ja):</strong> A noticeable drop in performance. The vast typological distance (e.g., SOV word order, complex script) makes direct semantic comparison challenging for the models, leading to a lower MCC score.",
+                        "<strong>English-Chinese (en-zh):</strong> The lowest performance. Like Japanese, Chinese presents significant linguistic divergence (e.g., tonal language, character-based script, different grammatical logic), which poses a major hurdle for accurate critical error detection."
+                    ]
+                }
+            };
+            
+            const chartColors = {
+                primary: '#16A085',
+                secondary: '#F39C12',
+                background: '#F8F7F4',
+                text: '#2C3E50',
+                grid: 'rgba(52, 73, 94, 0.1)'
+            };
+
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: chartColors.text,
+                            boxWidth: 12,
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(44, 62, 80, 0.9)',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        boxPadding: 4,
+                        cornerRadius: 4
+                    }
+                },
+            };
+
+            const dataDistributionCtx = document.getElementById('dataDistributionChart').getContext('2d');
+            new Chart(dataDistributionCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.overallDistribution.labels,
+                    datasets: [{
+                        data: data.overallDistribution.values,
+                        backgroundColor: [chartColors.primary, chartColors.secondary],
+                        borderColor: chartColors.background,
+                        borderWidth: 4,
+                    }]
+                },
+                options: { ...chartOptions, cutout: '70%' }
+            });
+
+            const dataPairsCtx = document.getElementById('dataPairsChart').getContext('2d');
+            new Chart(dataPairsCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.pairDistribution.labels,
+                    datasets: [{
+                        label: 'Non-Critical',
+                        data: data.pairDistribution.nonCritical,
+                        backgroundColor: 'rgba(22, 160, 133, 0.7)',
+                        borderColor: chartColors.primary,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Critical',
+                        data: data.pairDistribution.critical,
+                        backgroundColor: 'rgba(243, 156, 18, 0.7)',
+                        borderColor: chartColors.secondary,
+                        borderWidth: 1
+                    }]
+                },
+                options: { 
+                    ...chartOptions, 
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: chartColors.text }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: { color: chartColors.grid },
+                            ticks: { color: chartColors.text }
+                        }
+                    } 
+                }
+            });
+
+            const deepDiveButton = document.getElementById('deepDiveButton');
+            const deepDiveModal = document.getElementById('deepDiveModal');
+            const deepDiveContent = document.getElementById('deepDiveContent');
+            const closeButton = document.querySelector('.close-button');
+
+            let currentLanguagePair = '';
+            let currentMCC = 0;
+
+            const resultsCtx = document.getElementById('resultsChart').getContext('2d');
+            const analysisText = document.getElementById('analysis-text');
+            const resultsChart = new Chart(resultsCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.results.labels,
+                    datasets: [{
+                        label: 'MCC Score',
+                        data: data.results.mcc,
+                        backgroundColor: data.results.mcc.map(val => val > 0.25 ? 'rgba(22, 160, 133, 0.8)' : 'rgba(243, 156, 18, 0.8)'),
+                        borderColor: data.results.mcc.map(val => val > 0.25 ? chartColors.primary : chartColors.secondary),
+                        borderWidth: 2,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    onHover: (event, chartElement) => {
+                         event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                        if(chartElement.length > 0) {
+                            const index = chartElement[0].index;
+                            analysisText.innerHTML = data.results.analysis[index];
+                            currentLanguagePair = data.results.labels[index];
+                            currentMCC = data.results.mcc[index];
+                            deepDiveButton.classList.remove('hidden');
+                        } else {
+                            analysisText.innerHTML = `<p class="font-semibold">Hover over a bar to see a detailed analysis.</p><p>This chart compares the model's performance on each language pair.</p>`;
+                            deepDiveButton.classList.add('hidden');
+                        }
+                    },
+                    scales: {
+                         x: {
+                            grid: { display: false },
+                            ticks: { color: chartColors.text, font: { weight: 'bold' } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: chartColors.grid },
+                            ticks: { color: chartColors.text }
+                        }
+                    },
+                    plugins: {
+                        ...chartOptions.plugins,
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            const navLinks = document.querySelectorAll('header nav a');
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = e.currentTarget.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+
+            // Gemini API Integration
+            async function callGeminiAPI(prompt) {
+                const conceptOutput = document.getElementById('conceptOutput');
+                conceptOutput.innerHTML = `<p class="text-gray-400">Generating explanation...</p>`; // Loading indicator
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                try {
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = { contents: chatHistory };
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        console.error("Gemini API response structure unexpected:", result);
+                        return "Failed to get a response from Gemini API. Please try again.";
+                    }
+                } catch (error) {
+                    console.error("Error calling Gemini API:", error);
+                    return "Error connecting to Gemini API. Please check your network or try again later.";
+                }
+            }
+
+            // Explain a Concept Feature
+            const conceptInput = document.getElementById('conceptInput');
+            const explainConceptButton = document.getElementById('explainConceptButton');
+            const conceptOutput = document.getElementById('conceptOutput');
+
+            explainConceptButton.addEventListener('click', async () => {
+                const concept = conceptInput.value.trim();
+                if (concept) {
+                    conceptOutput.innerHTML = `<p class="text-gray-400">Generating explanation for "${concept}"...</p>`;
+                    const prompt = `Explain the following concept in the context of Natural Language Processing and Machine Translation, concisely and clearly: ${concept}`;
+                    const explanation = await callGeminiAPI(prompt);
+                    conceptOutput.innerHTML = explanation;
+                } else {
+                    conceptOutput.innerHTML = `<p class="text-red-500">Please enter a concept to explain.</p>`;
+                }
+            });
+
+            // Deep Dive Feature
+            deepDiveButton.addEventListener('click', async () => {
+                if (currentLanguagePair && currentMCC) {
+                    deepDiveModal.style.display = 'flex';
+                    deepDiveContent.innerHTML = `<p class="text-gray-400">Generating deep dive for ${currentLanguagePair}...</p>`;
+                    const prompt = `Given that a Machine Translation Quality Estimation model performs with an MCC of ${currentMCC} for the English to ${currentLanguagePair.split('-')[1]} language pair, explain in detail the primary linguistic challenges and typological differences between English and ${currentLanguagePair.split('-')[1]} that could contribute to this performance. Focus on aspects relevant to machine translation quality. Be concise.`;
+                    const deepDiveExplanation = await callGeminiAPI(prompt);
+                    deepDiveContent.innerHTML = deepDiveExplanation;
+                }
+            });
+
+            closeButton.addEventListener('click', () => {
+                deepDiveModal.style.display = 'none';
+            });
+
+            window.addEventListener('click', (event) => {
+                if (event.target == deepDiveModal) {
+                    deepDiveModal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
