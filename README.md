@@ -1,6 +1,8 @@
-# WMT-21 Critical-Error-Detection: COMETKiwi-23 XL + TinyLLama Fusion
+# WMT-21 Critical-Error-Detection: COMETKiwi-23 XL + TinyLLama Fusion [[Dashboard](https://muskaan712.github.io/error-detection-llm/)]
 
 This repository contains the code for a critical error detection system, combining the strengths of a COMETKiwi-23 XL quality estimation model and a local TinyLlama (TinyLlama) model. The system identifies "critical errors" in machine translation outputs by fusing the scores from both models using a logistic regression classifier.
+
+
 
 ## 🎯 Approach
 
